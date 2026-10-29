@@ -1,0 +1,48 @@
+name: aapt2
+
+on:
+  workflow_dispatch:
+    inputs:
+      tools_tag:
+        description: "构建脚手架版本（android-sdk-tools tag）"
+        default: "35.0.2"
+        required: false
+  push:
+    tags:
+      - "aapt2-*"
+
+jobs:
+  aarch64:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build bison flex golang-go python3 git patch file
+
+      - name: 安装 NDK r27c
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+
+      - name: 构建 aapt2
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          TOOLS_TAG: ${{ inputs.tools_tag || '35.0.2' }}
+        run: bash scripts/build-aapt2.sh
+
+      - name: 校验
+        run: |
+          file out/aapt2
+          sha256sum out/aapt2
+          ls -lh out/aapt2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aapt2-aarch64
+          path: out/
+          if-no-files-found: error
