@@ -11,7 +11,7 @@
 set -euxo pipefail
 exec > >(tee -a "${LOG:-build.log}") 2>&1
 
-TAG="${TOOLS_TAG:-35.0.2}"
+TOOLS_COMMIT="${TOOLS_COMMIT:-fe637bf075f1b734b4b01d281f9f58899245ed92}"
 AOSP_TAG="${AOSP_TAG:-platform-tools-35.0.2}"
 WORK="${WORK:-$PWD/.work}"
 OUT="${OUT:-$PWD/out}"
@@ -27,8 +27,12 @@ go version || true
 
 rm -rf "$WORK"
 mkdir -p "$WORK"
-echo "==> clone $REPO ($TAG)"
-git clone --depth 1 --branch "$TAG" "$REPO" "$WORK/src"
+echo "==> clone $REPO @ $TOOLS_COMMIT"
+git init -q "$WORK/src"
+cd "$WORK/src"
+git remote add origin "$REPO"
+git fetch --depth 1 origin "$TOOLS_COMMIT"
+git checkout -q FETCH_HEAD
 
 cd "$WORK/src"
 echo "==> 拉 AOSP 源码"
