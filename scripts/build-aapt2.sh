@@ -1,60 +1,65 @@
 #!/usr/bin/env bash
 #
 # 从 AOSP 源码构建静态 aapt2（arm64 / bionic），供 Lucky 的 apkbuilder 使用。
-#
-# 依赖：cmake ninja bison flex go python3 git patch + Android NDK r27c
-# 产物：out/aapt2（静态链接，可直接在 Android arm64 上执行）
+# 步骤参照 lzhiyong/android-sdk-tools 自己的 CI（ubuntu-24.04 + NDK r27c）。
 #
 # 环境变量：
-#   TOOLS_TAG  构建脚手架版本（默认 35.0.2）
-#   ANDROID_NDK_HOME  NDK 路径（CI 里由 setup-ndk 提供）
-#   OUT        产物目录（默认 ./out）
+#   TOOLS_TAG        构建脚手架版本（默认 35.0.2）
+#   ANDROID_NDK_HOME NDK 路径（CI 由 setup-ndk 提供）
+#   OUT              产物目录（默认 ./out）
 
-set -euo pipefail
+set -euxo pipefail
 
 TAG="${TOOLS_TAG:-35.0.2}"
 WORK="${WORK:-$PWD/.work}"
 OUT="${OUT:-$PWD/out}"
 REPO="https://github.com/lzhiyong/android-sdk-tools.git"
 
-echo "==> NDK: ${ANDROID_NDK_HOME:-<unset>}"
-if [ -z "${ANDROID_NDK_HOME:-}" ] && [ -z "${ANDROID_NDK_ROOT:-}" ]; then
-  echo "ANDROID_NDK_HOME 未设置" >&2
-  exit 1
-fi
+echo "NDK=${ANDROID_NDK_HOME:-<unset>}"
+: "${ANDROID_NDK_HOME:?ANDROID_NDK_HOME 未设置}"
+
+python3 --version
+cmake --version | head -1
+ninja --version
+go version || true
 
 rm -rf "$WORK"
 mkdir -p "$WORK"
-echo "==> clone $REPO @ $TAG"
-git clone --depth 1 --branch "$TAG" "$REPO" "$WORK/src" 2>/dev/null \
-  || git clone --depth 1 "$REPO" "$WORK/src"
+echo "==> clone $REPO ($TAG)"
+git clone --depth 1 --branch "$TAG" "$REPO" "$WORK/src"
 
 cd "$WORK/src"
-
-echo "==> 拉取 AOSP 源码（aapt2 + 依赖）"
+echo "==> 拉 AOSP 源码"
 python3 get_source.py
 
-echo "==> 构建 aapt2（static / aarch64 / api 30）"
+echo "==> 编译 host protoc"
+python3 build.py --protoc-only --protoc-output "$WORK/protoc"
+
+echo "==> 构建 aapt2"
 python3 build.py \
-  --arch aarch64 \
   --toolchain ndk \
+  --arch aarch64 \
   --link static \
-  --api 30 \
+  --protoc "$WORK/protoc" \
   --target aapt2 \
-  --clean
+  --output-dir "$OUT/dist"
 
-BIN="$WORK/src/build/ndk-static-aarch64/bin/build-tools/aapt2"
-if [ ! -f "$BIN" ]; then
-  echo "找不到产物：$BIN" >&2
-  exit 1
-fi
+ZIP="$OUT/dist/android-sdk-tools-static-aarch64.zip"
+[ -f "$ZIP" ] || { echo "产物缺失：$ZIP"; ls -R "$OUT" || true; exit 1; }
 
-mkdir -p "$OUT"
-cp "$BIN" "$OUT/aapt2"
-chmod +x "$OUT/aapt2"
-sha256sum "$OUT/aapt2" > "$OUT/aapt2.sha256"
+rm -rf "$OUT/extract"
+mkdir -p "$OUT/extract"
+unzip -o -q "$ZIP" -d "$OUT/extract"
 
-echo "==> 产物"
-file "$OUT/aapt2" || true
-cat "$OUT/aapt2.sha256"
-ls -lh "$OUT/aapt2"
+BIN="$OUT/extract/build-tools/aapt2"
+[ -f "$BIN" ] || { echo "zip 里没有 build-tools/aapt2"; unzip -l "$ZIP" | head -20; exit 1; }
+
+mkdir -p "$OUT/artifact"
+cp "$BIN" "$OUT/artifact/aapt2"
+chmod +x "$OUT/artifact/aapt2"
+sha256sum "$OUT/artifact/aapt2" > "$OUT/artifact/aapt2.sha256"
+
+echo "==> 完成"
+file "$OUT/artifact/aapt2" || true
+cat "$OUT/artifact/aapt2.sha256"
+ls -lh "$OUT/artifact/aapt2"

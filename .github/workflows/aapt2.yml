@@ -11,38 +11,53 @@ on:
     tags:
       - "aapt2-*"
 
+env:
+  TOOLS_TAG: ${{ inputs.tools_tag || '35.0.2' }}
+  CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+
 jobs:
   aarch64:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
 
+      - name: 释放磁盘空间
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL || true
+          df -h /
+
       - name: 安装依赖
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build bison flex golang-go python3 git patch file
+          sudo apt-get install -y --no-install-recommends ninja-build bison flex patch unzip file
+
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
 
       - name: 安装 NDK r27c
         id: ndk
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r27c
+          add-to-path: false
 
       - name: 构建 aapt2
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
-          TOOLS_TAG: ${{ inputs.tools_tag || '35.0.2' }}
         run: bash scripts/build-aapt2.sh
 
       - name: 校验
         run: |
-          file out/aapt2
-          sha256sum out/aapt2
-          ls -lh out/aapt2
+          file out/artifact/aapt2
+          sha256sum out/artifact/aapt2
+          ls -lh out/artifact/aapt2
 
       - uses: actions/upload-artifact@v4
         with:
           name: aapt2-aarch64
-          path: out/
+          path: out/artifact/
           if-no-files-found: error
