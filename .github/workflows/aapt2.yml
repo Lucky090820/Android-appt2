@@ -11,6 +11,10 @@ on:
     tags:
       - "aapt2-*"
 
+permissions:
+  contents: read
+  issues: write
+
 env:
   TOOLS_TAG: ${{ inputs.tools_tag || '35.0.2' }}
   CMAKE_POLICY_VERSION_MINIMUM: "3.5"
@@ -48,7 +52,17 @@ jobs:
       - name: 构建 aapt2
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          AOSP_TAG: ${{ inputs.aosp_tag || 'platform-tools-35.0.2' }}
+          LOG: build.log
         run: bash scripts/build-aapt2.sh
+
+      - name: 失败时把日志发成 issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tail -120 build.log > /tmp/tail.log || true
+          gh issue create             --title "CI failed: run ${{ github.run_id }}"             --body-file /tmp/tail.log || true
 
       - name: 校验
         run: |

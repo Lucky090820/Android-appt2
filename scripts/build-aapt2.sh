@@ -9,8 +9,10 @@
 #   OUT              产物目录（默认 ./out）
 
 set -euxo pipefail
+exec > >(tee -a "${LOG:-build.log}") 2>&1
 
 TAG="${TOOLS_TAG:-35.0.2}"
+AOSP_TAG="${AOSP_TAG:-platform-tools-35.0.2}"
 WORK="${WORK:-$PWD/.work}"
 OUT="${OUT:-$PWD/out}"
 REPO="https://github.com/lzhiyong/android-sdk-tools.git"
@@ -30,7 +32,7 @@ git clone --depth 1 --branch "$TAG" "$REPO" "$WORK/src"
 
 cd "$WORK/src"
 echo "==> 拉 AOSP 源码"
-python3 get_source.py
+python3 get_source.py --tags "$AOSP_TAG"
 
 echo "==> 编译 host protoc"
 python3 build.py --protoc-only --protoc-output "$WORK/protoc"
