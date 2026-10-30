@@ -25,21 +25,35 @@ cmake --version | head -1
 ninja --version
 go version || true
 
-rm -rf "$WORK"
 mkdir -p "$WORK"
-echo "==> clone $REPO @ $TOOLS_COMMIT"
-git init -q "$WORK/src"
-cd "$WORK/src"
-git remote add origin "$REPO"
-git fetch --depth 1 origin "$TOOLS_COMMIT"
-git checkout -q FETCH_HEAD
+
+if [ -f "$WORK/src/build.py" ]; then
+  echo "==> 命中缓存：构建脚手架已存在"
+else
+  echo "==> clone $REPO @ $TOOLS_COMMIT"
+  rm -rf "$WORK/src"
+  git init -q "$WORK/src"
+  cd "$WORK/src"
+  git remote add origin "$REPO"
+  git fetch --depth 1 origin "$TOOLS_COMMIT"
+  git checkout -q FETCH_HEAD
+fi
 
 cd "$WORK/src"
-echo "==> 拉 AOSP 源码"
-python3 get_source.py --tags "$AOSP_TAG"
 
-echo "==> 编译 host protoc"
-python3 build.py --protoc-only --protoc-output "$WORK/protoc"
+if [ -d "$WORK/src/src" ]; then
+  echo "==> 命中缓存：AOSP 源码已存在（$(du -sh "$WORK/src/src" | cut -f1)）"
+else
+  echo "==> 拉 AOSP 源码"
+  python3 get_source.py --tags "$AOSP_TAG"
+fi
+
+if [ -f "$WORK/protoc" ]; then
+  echo "==> 命中缓存：host protoc 已存在"
+else
+  echo "==> 编译 host protoc"
+  python3 build.py --protoc-only --protoc-output "$WORK/protoc"
+fi
 
 echo "==> 构建 aapt2"
 python3 build.py \

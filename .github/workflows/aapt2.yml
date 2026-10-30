@@ -49,6 +49,15 @@ jobs:
           ndk-version: r27c
           add-to-path: false
 
+      - name: 恢复源码缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            .work/src
+            .work/protoc
+            !.work/src/src/**/.git
+          key: aapt2-src-${{ inputs.aosp_tag || 'platform-tools-35.0.2' }}-v2
+
       - name: 构建 aapt2
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
