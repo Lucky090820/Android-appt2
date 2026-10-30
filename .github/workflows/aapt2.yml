@@ -12,7 +12,7 @@ on:
       - "aapt2-*"
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 env:
@@ -75,3 +75,11 @@ jobs:
           name: aapt2-aarch64
           path: out/artifact/
           if-no-files-found: error
+
+      - name: 发布到 Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/artifact/*
+          tag_name: ${{ github.ref_name }}
+          body: "静态 aapt2（arm64 / bionic），由 AOSP 源码 + NDK r27c 构建"

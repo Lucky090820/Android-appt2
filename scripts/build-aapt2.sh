@@ -57,8 +57,9 @@ rm -rf "$OUT/extract"
 mkdir -p "$OUT/extract"
 unzip -o -q "$ZIP" -d "$OUT/extract"
 
-BIN="$OUT/extract/build-tools/aapt2"
-[ -f "$BIN" ] || { echo "zip 里没有 build-tools/aapt2"; unzip -l "$ZIP" | head -20; exit 1; }
+BIN=$(find "$OUT/extract" -type f -name aapt2 | head -1)
+[ -n "$BIN" ] || { echo "zip 里没找到 aapt2"; unzip -l "$ZIP" | head -20; exit 1; }
+echo "aapt2: $BIN"
 
 mkdir -p "$OUT/artifact"
 cp "$BIN" "$OUT/artifact/aapt2"
